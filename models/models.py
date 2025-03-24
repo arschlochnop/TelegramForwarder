@@ -38,6 +38,9 @@ class ForwardRule(Base):
     ufb_item = Column(String, nullable=True,default='main')
     is_delete_original = Column(Boolean, default=False)  # 是否删除原始消息
     is_original_sender = Column(Boolean, default=False)  # 是否附带原始消息发送人名称
+    userinfo_template = Column(String, default='**{name}**', nullable=True)  # 用户信息模板
+    time_template = Column(String, default='{time}', nullable=True)  # 时间模板
+    original_link_template = Column(String, default='原始连接：{original_link}', nullable=True)  # 原始链接模板
     is_original_time = Column(Boolean, default=False)  # 是否附带原始消息发送时间
     add_mode = Column(Enum(AddMode), nullable=False, default=AddMode.BLACKLIST) # 添加模式,默认黑名单
     enable_rule = Column(Boolean, default=True)  # 是否启用规则
@@ -63,6 +66,8 @@ class ForwardRule(Base):
     delay_seconds = Column(Integer, default=5)  # 延迟处理秒数
     # RSS相关字段
     only_rss = Column(Boolean, default=False)  # 是否只转发RSS
+    # 同步功能相关
+    enable_sync = Column(Boolean, default=False)  # 是否启用规则同步功能
 
     # 添加唯一约束
     __table_args__ = (
@@ -77,7 +82,7 @@ class ForwardRule(Base):
     media_types = relationship('MediaTypes', uselist=False, back_populates='rule', cascade="all, delete-orphan")
     media_extensions = relationship('MediaExtensions', back_populates='rule', cascade="all, delete-orphan")
     rss_config = relationship('RSSConfig', uselist=False, back_populates='rule', cascade="all, delete-orphan")
-
+    rule_syncs = relationship('RuleSync', back_populates='rule', cascade="all, delete-orphan")
 
 class Keyword(Base):
     __tablename__ = 'keywords'
@@ -141,6 +146,16 @@ class MediaExtensions(Base):
     __table_args__ = (
         UniqueConstraint('rule_id', 'extension', name='unique_rule_extension'),
     )
+
+class RuleSync(Base):
+    __tablename__ = 'rule_syncs'
+
+    id = Column(Integer, primary_key=True)
+    rule_id = Column(Integer, ForeignKey('forward_rules.id'), nullable=False)
+    sync_rule_id = Column(Integer, nullable=False)
+
+    # 关系
+    rule = relationship('ForwardRule', back_populates='rule_syncs')
 
 
 class RSSConfig(Base):
@@ -208,6 +223,13 @@ def migrate_db(engine):
         
     try:
         with engine.connect() as connection:
+
+            # 如果rule_syncs表不存在，创建表
+            if 'rule_syncs' not in existing_tables:
+                logging.info("创建rule_syncs表...")
+                RuleSync.__table__.create(engine)
+
+
             # 如果users表不存在，创建表
             if 'users' not in existing_tables:
                 logging.info("创建users表...")
@@ -308,6 +330,10 @@ def migrate_db(engine):
         'enable_extension_filter': 'ALTER TABLE forward_rules ADD COLUMN enable_extension_filter BOOLEAN DEFAULT FALSE',
         'extension_filter_mode': 'ALTER TABLE forward_rules ADD COLUMN extension_filter_mode VARCHAR DEFAULT "BLACKLIST"',
         'only_rss': 'ALTER TABLE forward_rules ADD COLUMN only_rss BOOLEAN DEFAULT FALSE',
+        'enable_sync': 'ALTER TABLE forward_rules ADD COLUMN enable_sync BOOLEAN DEFAULT FALSE',
+        'userinfo_template': 'ALTER TABLE forward_rules ADD COLUMN userinfo_template VARCHAR DEFAULT "**{name}**"',
+        'time_template': 'ALTER TABLE forward_rules ADD COLUMN time_template VARCHAR DEFAULT "{time}"',
+        'original_link_template': 'ALTER TABLE forward_rules ADD COLUMN original_link_template VARCHAR DEFAULT "原始连接：{original_link}"',
     }
 
     keywords_new_columns = {

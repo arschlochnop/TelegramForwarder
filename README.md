@@ -12,6 +12,19 @@
 
 </div>
 
+## 📖 简介
+Telegram 转发器是一个消息转发工具，只需要你的账号加入频道/群聊即可以将指定聊天中的消息转发到其他聊天，不需要bot进入对应的频道/群组即可监听。可用于**信息流整合过滤**，**消息提醒**，**内容收藏**等多种场景, 不受转发/复制禁止的限制。
+
+## ✨ 特性
+
+- 🔄 **多源转发**：支持从多个来源转发到指定目标
+- 🔍 **关键词过滤**：支持白名单和黑名单模式
+- 📝 **正则匹配**：支持正则表达式匹配目标文本
+- 📋 **内容修改**：支持多种方式修改消息内容
+- 🤖 **AI 处理**：支持使用各大厂商的AI接口
+- 📹 **媒体过滤**：支持过滤指定类型的媒体文件
+- 📰 **RSS订阅**：支持RSS订阅
+
 ## 📋 目录
 
 - [📖 简介](#-简介)
@@ -34,35 +47,21 @@
     - [自定义模型](#自定义模型)
     - [AI处理能力](#ai-处理)
     - [定时总结功能](#定时总结)
-  - [📰 RSS订阅](#rss订阅)
+  - [📰 RSS订阅](#-RSS订阅)
     - [启用RSS功能](#启用rss功能)
     - [访问RSS仪表盘](#访问rss仪表盘) 
-    - [RSS配置管理](#rss配置管理)
-    - [新建/编辑配置界面说明](#新建编辑配置界面说明)
-    - [特殊说明](#特殊说明)
-    - [特殊设置项](#特殊设置项)
     - [Nginx配置](#nginx配置)
+    - [RSS配置说明](#rss配置管理)
+    - [特殊设置项](#特殊设置项)
     - [注意事项](#注意事项)
   
 - [🎯 特殊功能](#-特殊功能)
   - [🔗 链接转发功能](#-链接转发功能)
-  - [🔄 与通用论坛屏蔽插件联动](#-与通用论坛屏蔽插件联动)
 - [📝 命令列表](#-命令列表)
 - [☕ 捐赠](#-捐赠)
 - [📄 开源协议](#-开源协议)
 
-## 📖 简介
-Telegram 转发器是一个消息转发工具，只需要你的账号加入频道/群聊即可以将指定聊天中的消息转发到其他聊天，不需要bot进入对应的频道/群组即可监听。可用于**信息流整合过滤**，**消息提醒**，**内容收藏**等多种场景。
 
-## ✨ 特性
-
-- 🔄 **多源转发**：支持从多个来源转发到指定目标
-- 🔍 **关键词过滤**：支持白名单和黑名单模式
-- 📝 **正则匹配**：支持正则表达式匹配目标文本
-- 📋 **内容修改**：支持多种方式修改消息内容
-- 🤖 **AI 处理**：支持使用各大厂商的AI接口
-- 📹 **媒体过滤**：支持过滤指定类型的媒体文件
-- 🔗 **联动同步**：支持与[通用论坛屏蔽插件](https://github.com/heavrnl/universalforumblock)联动同步，实现三端屏蔽
 
 ## 🚀 快速开始
 
@@ -85,139 +84,14 @@ Telegram 转发器是一个消息转发工具，只需要你的账号加入频�
 ```bash
 mkdir ./TelegramForwarder && cd ./TelegramForwarder
 ```
-新建`.env`文件，填写参数，或者直接下载仓库的`.env.example`文件
+下载仓库的 [**docker-compose.yml**](https://github.com/Heavrnl/TelegramForwarder/blob/main/docker-compose.yml) 到目录下
+
+接着下载或复制仓库的 **[.env.example](./.env.example)** 文件，填入必填项，然后重命名为`.env`
 ```bash
 wget https://raw.githubusercontent.com/Heavrnl/TelegramForwarder/refs/heads/main/.env.example -O .env
 ```
-```ini
-# Telegram API 配置 (从 https://my.telegram.org/apps 获取)
-API_ID=
-API_HASH=
-
-# 用户账号登录用的手机号 (格式如: +8613812345678)
-PHONE_NUMBER=
-
-# Bot Token
-BOT_TOKEN=
-
-# 用户ID (从 @userinfobot 获取)
-USER_ID=
-
-# 默认最大媒体文件大小限制（单位：MB）
-DEFAULT_MAX_MEDIA_SIZE=15
-
-# 是否开启调试日志 (true/false)
-DEBUG=false
-
-# 数据库配置
-DATABASE_URL=sqlite:///./db/forward.db
-
-# UI 布局配置
-AI_MODELS_PER_PAGE=10
-KEYWORDS_PER_PAGE=10
-SUMMARY_TIME_ROWS=10  
-SUMMARY_TIME_COLS=6
-DELAY_TIME_ROWS=10
-DELAY_TIME_COLS=6
-MEDIA_SIZE_ROWS=10
-MEDIA_SIZE_COLS=6
-MEDIA_EXTENSIONS_ROWS=10
-MEDIA_EXTENSIONS_COLS=6
 
 
-# 默认AI模型
-DEFAULT_AI_MODEL=gemini-2.0-flash
-
-# OpenAi API Key
-OPENAI_API_KEY=your_openai_api_key
-# 留空使用官方接口 https://api.openai.com/v1
-OPENAI_API_BASE=  
-
-# Claude API Key
-CLAUDE_API_KEY=your_claude_api_key
-# 留空使用官方接口
-CLAUDE_API_BASE=
-
-# Gemini API Key
-# 默认使用官方接口
-GEMINI_API_KEY=your_gemini_api_key
-# 兼容OpenAI接口标准的第三方API Base，如官方的：https://generativelanguage.googleapis.com/v1beta
-GEMINI_API_BASE=
-
-# DeepSeek API Key
-DEEPSEEK_API_KEY=your_deepseek_api_key
-# 留空使用官方接口 https://api.deepseek.com/v1
-DEEPSEEK_API_BASE=  
-
-# Qwen API Key
-QWEN_API_KEY=your_qwen_api_key
-# 留空使用官方接口 https://dashscope.aliyuncs.com/compatible-mode/v1
-QWEN_API_BASE=  
-
-# Grok API Key
-GROK_API_KEY=your_grok_api_key
-# 留空使用官方接口 https://api.x.ai/v1
-GROK_API_BASE=     
-
-# 默认AI提示词
-DEFAULT_AI_PROMPT=请尊重原意，保持原有格式不变，用简体中文重写下面的内容：
-
-# 默认AI总结提示词
-DEFAULT_SUMMARY_PROMPT=请总结以下频道/群组24小时内的消息。
-# 默认总结时间 (24小时制)
-DEFAULT_SUMMARY_TIME=07:00
-# 默认时区
-DEFAULT_TIMEZONE=Asia/Shanghai
-# 聊天信息更新时间 (24小时制)
-CHAT_UPDATE_TIME=03:00
-
-# AI总结每次爬取消息数量
-SUMMARY_BATCH_SIZE=20
-# AI总结每次爬取消息间隔时间（秒）
-SUMMARY_BATCH_DELAY=2
-
-
-######### 扩展内容 #########
-
-# 是否开启与通用论坛屏蔽插件服务端的同步服务 (true/false)
-UFB_ENABLED=false
-# 服务端地址
-UFB_SERVER_URL=
-# 用户API_KEY
-UFB_TOKEN=
-
-```
-
-#### docker-compose.yml 文件
-新建 `docker-compose.yml` 文件，内容如下：
-
-```yaml
-services:
-  telegram-forwarder:
-    image: heavrnl/telegramforwarder:rss
-    container_name: telegram-forwarder
-    ports:
-      - 9804:8000
-    restart: unless-stopped
-    volumes:
-      - ./db:/app/db
-      - ./.env:/app/.env
-      - ./logs:/app/logs
-      - ./sessions:/app/sessions
-      - ./temp:/app/temp
-      - ./ufb/config:/app/ufb/config
-      - ./config:/app/config
-      - ./rss/data:/app/rss/data
-      - ./rss/media:/app/rss/media
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        compress: "true"
-    stdin_open: true
-    tty: true
-```
 
 ### 3️⃣ 启动服务
 
@@ -282,51 +156,76 @@ docker-compose up -d
 
 这样，你就能收到经过过滤和格式化的频道消息了
 
-### 🔧 特殊使用场景示例
-TG频道的部分消息由于文字嵌入链接，点击会让你确认再跳转，例如nodeseek的官方通知频道
+### 🔧 特殊使用场景示例  
 
-频道的原始消息格式
-```
+#### 1. TG 频道的部分消息由于文字嵌入链接，点击会让你确认再跳转，例如 NodeSeek 的官方通知频道  
+
+频道的原始消息格式 
+```markdown
 [**贴子标题**](https://www.nodeseek.com/post-xxxx-1)
-```
-
-可以对通知频道的转发规则**依次**使用以下指令
-```
+```  
+可以对通知频道的转发规则 **依次** 使用以下指令：  
+```plaintext
 /replace \*\*
 /replace \[(?:\[([^\]]+)\])?([^\]]+)\]\(([^)]+)\) [\1]\2\n(\3)
 /replace \[\]\s*
-```
-最后所有转发过来的消息都会变成以下格式，这样直接点击链接就无需确认跳转了
-
-```
+```  
+最终所有转发的消息都会变成以下格式，这样直接点击链接就无需确认跳转：  
+```plaintext
 贴子标题
 (https://www.nodeseek.com/post-xxxx-1)
-```
+```  
+
+---
+
+#### 2. 监听用户消息格式不美观，可优化消息显示方式  
+
+**依次** 使用以下指令：  
+```plaintext
+/r ^(?=.) <blockquote>
+/r (?<=.)(?=$) </blockquote>
+```  
+然后设置消息格式为 **HTML**，这样监听用户消息时，消息格式就会美观很多：  
+
+![示例图片](./images/user_spy.png)
+
+---
+
+#### 3. 同步规则操作  
+
+在 **设置菜单** 中开启 **"同步规则"**，并选择 **目标规则**，当前规则的所有操作将同步到选定的规则。  
+
+适用于以下场景：  
+- 不想在当前窗口处理规则  
+- 需要同时操作多个规则  
+
+如果当前规则仅用于同步而不需实际生效，可将 **"是否启用规则"** 设置为 **"否"**。
+
+---
+
+#### 4. 如何转发到收藏夹 (Saved Messages)
+> 不推荐，操作比较繁琐
+1. 在你的 bot 管理的任意群组或频道中发送以下命令：  
+   ```bash
+   /bind https://t.me/tgnews 你的用户名（即展示的名称）
+   ```  
+
+2. 随意新建一个规则，并进行以下设置：  
+   - **开启同步功能**，同步到 **转发收藏夹的规则**
+   - **转发模式** 选择 **"用户模式"**  
+   - **禁用规则**（将规则”是否启用规则“设置为关闭）  
+
+这样，你就可以在其他规则中管理收藏夹的规则，所有操作都会同步到 **转发收藏夹** 规则中。
+
 
 ## 🛠️ 功能详解
 
 ### ⚡ 过滤流程
 首先要清楚消息过滤顺序，括号里对应设置里的选项：
 
-```mermaid
-flowchart TD
-    A["延迟处理过滤器(延迟处理)"] --> B["关键字过滤器(对应过滤模式/过滤关键字时是否附带发送者名称和ID)"]
-    B --> C["替换过滤器(替换模式)"]
-    C --> D["AI处理过滤器(使用AI处理消息)"]
-    D --> E["信息过滤器(添加原始链接/发送者/时间)"]
-    E --> K["评论区按钮过滤器(添加评论区直达按钮)"]
-    K --> F["媒体过滤器(处理媒体内容, 具体查看媒体设置)"]
-    F --> J{"处理模式判断(根据规则配置判断后续处理方式)"}
-    J -->|编辑模式| G["编辑过滤器(编辑消息)"]
-    J -->|转发模式| H["发送过滤器(发送消息，对应预览模式/消息格式/转发方式)"]
-    G --> I["删除原始消息过滤器(删除原始消息)"]
-    H --> I
+![img](./images/flow_chart.png)
 
-    classDef filter fill:#f5f5f5,stroke:#333,stroke-width:1px;
-    class A,B,C,D,E,F,G,H,I,K filter;
-    classDef decision fill:#f5f5f5,stroke:#333,stroke-width:1px;
-    class J decision;
-```
+
 
 ### ⚙️ 设置说明
 | 主设置界面 | AI设置界面 | 媒体设置界面 |
@@ -347,10 +246,11 @@ flowchart TD
 | 替换模式 | 启用后将根据已设置的替换规则对消息进行处理 |
 | 消息格式 | 可切换Markdown/HTML格式，在最终发送阶段生效，一般使用默认的Markdown即可 |
 | 预览模式 | 可切换开启/关闭/跟随原消息。开启后会预览消息中的第一个链接，默认跟随原消息的预览状态 |
-| 原始发送者/原始链接/发送时间 | 启用后会在消息发送时添加这些信息，默认关闭 |
+| 原始发送者/原始链接/发送时间 | 启用后会在消息发送时添加这些信息，默认关闭，可在"其他设置"菜单中设置自定义模板 |
 | 延时处理 | 启用后会按设定的延迟时间重新获取原消息内容，再开始处理流程，适用于频繁修改消息的频道/群组，可在 config/delay_time.txt 中添加自定义延迟时间 |
 | 删除原始消息 | 启用后会删除原消息，使用前请确认是否有删除权限 |
 | 评论区直达按钮 | 启用后在转发后的消息下发添加评论区直达按钮，前提是原消息有评论区 |
+| 同步到其他规则 | 启用后会同步当前规则的操作到其他规则，除了"是否启用规则"和"开启同步"其他设置都会同步 |
 
 #### 媒体设置说明
 | 设置选项 | 说明 |
@@ -364,6 +264,19 @@ flowchart TD
 | 媒体扩展名过滤模式 | 切换黑/白名单模式 |
 | 选择的媒体扩展名 | 选择要过滤的的媒体扩展名，可在 config/media_extensions.txt 中添加自定义扩展名 |
 
+#### 其他设置说明
+
+其他设置菜单中整合了常用的几个指令，使其可以在界面直接交互，包括：
+- 复制规则
+- 复制关键字
+- 复制替换规则
+- 清除关键字
+- 清除替换规则
+- 删除规则
+
+其中清除关键字、清除替换规则、删除规则可以对其他规则生效
+
+同时你可以在这里设置自定义模板，包括：用户信息模板、时间模板、原始链接模板
 
 
 ### 🤖 AI功能
@@ -391,7 +304,7 @@ CLAUDE_API_KEY=your_key
 
 #### 自定义模型
 
-没找到想要的模型名字？在 `config/ai_models.txt` 中添加即可。
+没找到想要的模型名字？在 `config/ai_models.json` 中添加即可。
 
 #### AI 处理
 
@@ -437,15 +350,34 @@ AI处理提示词中可以使用以下格式：
    # RSS媒体文件基础URL，留空则使用默认的访问URL（例如：https://media.example.com）
    RSS_MEDIA_BASE_URL=
    ```
-
-2. 重启服务以启用RSS功能：
+2. docker-compose.yml取消注释
+   ```
+    # 如果需要使用 RSS 功能，请取消以下注释
+     ports:
+       - 9804:8000
+   ```
+3. 重启服务以启用RSS功能：
    ```bash
    docker-compose restart
    ```
 > 注意：旧版本用户需要用新的docker-compose.yml文件重新部署：[docker-compose.yml](./docker-compose.yml)
 ### 访问RSS仪表盘
 
-1. 浏览器访问 `http://你的服务器地址:9804/`
+浏览器访问 `http://你的服务器地址:9804/`
+
+### Nginx配置
+```
+ location / {
+        proxy_pass http://127.0.0.1:9804;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+    }
+```
 
 ### RSS配置管理
 
@@ -462,7 +394,7 @@ AI处理提示词中可以使用以下格式：
 | 规则ID | 选择现有的一个转发规则，用于生成RSS订阅 |
 | 复制已有配置 | 选择现有的一个RSS配置，复制它的配置到当前表单|
 |订阅源标题| 设置订阅源标题 |
-|自动填充| 点击后自动根据规则的源聊天窗口名字生成 RSS 标题 |
+|自动填充| 点击后自动根据规则的源聊天窗口名字生成订阅源标题 |
 |订阅源描述| 设置订阅源描述 |
 |语言| 占位，暂无特殊功能 |
 |最大条目数| 设置RSS订阅源的最大条目数，默认50，对于媒体比较多的聊天源，请根据硬盘实际硬盘大小设置 |
@@ -478,25 +410,12 @@ AI处理提示词中可以使用以下格式：
 
 ### 特殊说明
 - 若只开启自动提取标题，而不开启自动提取内容，则内容会是包含提取了标题的完整的Telegram消息内容
-- 若内容处理选项和正则表达式配置都为空，标题会自动匹配消息的前20个字符，内容则为原始消息
+- 若内容处理选项和正则表达式配置都为空，会自动匹配前20个字符作为标题，内容则为原始消息
 
 
 ### 特殊设置项
 若在.env中开启`RSS_ENABLED=true`，则会在bot的设置中会新增一个`只转发到RSS`的选项，启用后，消息经过各种处理后会在RSS过滤器处理后中断，不会执行转发/编辑
 
-### Nginx配置
-```
- location / {
-        proxy_pass http://127.0.0.1:9804;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header X-Forwarded-Host $host;
-    }
-```
 
 ### 注意事项
 
@@ -506,7 +425,7 @@ AI处理提示词中可以使用以下格式：
 
 ### 🔗 链接转发功能
 
-向bot发送消息链接，即可把那条消息转发到当前聊天窗口，无视禁止转发和复制的限制（虽然我们转发器本身的功能就无视该限制...
+向bot发送消息链接，即可把那条消息转发到当前聊天窗口，无视禁止转发和复制的限制（项目自身功能已无视转发和复制限制
 
 ### 🔄 与通用论坛屏蔽插件联动
 > https://github.com/heavrnl/universalforumblock
@@ -523,12 +442,12 @@ AI处理提示词中可以使用以下格式：
 /help(/h) - 显示此帮助信息
 
 绑定和设置
-/bind(/b) <聊天窗口链接/聊天窗口名字> - 绑定源聊天
-/settings(/s) - 管理转发规则
+/bind(/b) <源聊天链接或名称> [目标聊天链接或名称] - 绑定源聊天
+/settings(/s) [规则ID] - 管理转发规则
 /changelog(/cl) - 查看更新日志
 
 转发规则管理
-/copy_rule(/cr) <规则ID> - 复制指定规则的所有设置到当前规则
+/copy_rule(/cr)  <源规则ID> [目标规则ID] - 复制指定规则的所有设置到当前规则或目标规则ID
 /delete_rule(/dr) <规则ID> [规则ID] [规则ID] ... - 删除指定规则
 /list_rule(/lr) - 列出所有转发规则
 
@@ -549,8 +468,8 @@ AI处理提示词中可以使用以下格式：
 /copy_rule(/cr) <规则ID> - 复制指定规则的所有设置到当前规则（包括关键字、正则、替换规则、媒体设置等）
 
 替换规则管理
-/replace(/r) <模式> [替换内容] - 添加替换规则
-/replace_all(/ra) <模式> [替换内容] - 添加替换规则到所有规则
+/replace(/r) <正则表达式> [替换内容] - 添加替换规则
+/replace_all(/ra) <正则表达式> [替换内容] - 添加替换规则到所有规则
 /list_replace(/lrp) - 列出所有替换规则
 /remove_replace(/rr) <序号> - 删除替换规则
 /clear_all_replace(/car) - 清除当前规则的所有替换规则
@@ -562,6 +481,9 @@ AI处理提示词中可以使用以下格式：
 /import_keyword(/ik) <同时发送文件> - 导入普通关键字
 /import_regex_keyword(/irk) <同时发送文件> - 导入正则关键字
 /import_replace(/ir) <同时发送文件> - 导入替换规则
+
+RSS相关
+/delete_rss_user(/dru) [用户名] - 删除RSS用户
 
 UFB相关
 /ufb_bind(/ub) <域名> - 绑定UFB域名
@@ -575,11 +497,16 @@ UFB相关
 • 导入命令需要同时发送文件
 ```
 
+## 感谢大家的小星星⭐
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Heavrnl/TelegramForwarder&type=Date)](https://www.star-history.com/#Heavrnl/TelegramForwarder&Date)
+
 ## ☕ 捐赠
 
 如果你觉得这个项目对你有帮助，欢迎通过以下方式请我喝杯咖啡：
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/0heavrnl)
+
 
 ## 📄 开源协议
 

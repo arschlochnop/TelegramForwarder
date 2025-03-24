@@ -4,7 +4,7 @@ from filters.keyword_filter import KeywordFilter
 from utils.common import check_keywords
 from utils.common import get_main_module
 from ai import get_ai_provider
-import os
+from utils.constants import DEFAULT_AI_MODEL,DEFAULT_SUMMARY_PROMPT,DEFAULT_AI_PROMPT
 from datetime import datetime, timedelta
 import asyncio
 import re
@@ -29,6 +29,7 @@ class AIFilter(BaseFilter):
         rule = context.rule
         message_text = context.message_text
         original_message_text = context.original_message_text
+        event = context.event
 
         # logger.info(f"AIFilter处理消息前，context: {context.__dict__}")
         try:
@@ -47,8 +48,9 @@ class AIFilter(BaseFilter):
                     context.message_text = processed_text
                     
                     # 如果需要在AI处理后再次检查关键字
+                    logger.info(f"rule.is_keyword_after_ai:{rule.is_keyword_after_ai}")
                     if rule.is_keyword_after_ai:
-                        should_forward = await check_keywords(rule, processed_text)
+                        should_forward = await check_keywords(rule, processed_text, event)
                         
                         if not should_forward:
                             logger.info('AI处理后的文本未通过关键字检查，取消转发')
@@ -80,7 +82,7 @@ async def _ai_handle(message: str, rule) -> str:
             return message
         # 先读取数据库，如果ai模型为空，则使用.env中的默认模型
         if not rule.ai_model:
-            rule.ai_model = os.getenv('DEFAULT_AI_MODEL')
+            rule.ai_model = DEFAULT_AI_MODEL
             logger.info(f"使用默认AI模型: {rule.ai_model}")
         else:
             logger.info(f"使用规则配置的AI模型: {rule.ai_model}")
@@ -88,7 +90,7 @@ async def _ai_handle(message: str, rule) -> str:
         provider = await get_ai_provider(rule.ai_model)
         
         if not rule.ai_prompt:
-            rule.ai_prompt = os.getenv('DEFAULT_AI_PROMPT')
+            rule.ai_prompt = DEFAULT_AI_PROMPT
             logger.info("使用默认AI提示词")
         else:
             logger.info("使用规则配置的AI提示词")

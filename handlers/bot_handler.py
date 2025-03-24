@@ -97,8 +97,8 @@ async def handle_command(client, event):
     command_handlers = {
         'bind': lambda: handle_bind_command(event, client, parts),
         'b': lambda: handle_bind_command(event, client, parts),
-        'settings': lambda: handle_settings_command(event),
-        's': lambda: handle_settings_command(event),
+        'settings': lambda: handle_settings_command(event, command, parts),
+        's': lambda: handle_settings_command(event, command, parts),
         'switch': lambda: handle_switch_command(event),
         'sw': lambda: handle_switch_command(event),
         'add': lambda: handle_add_command(event, command, parts),
@@ -166,6 +166,8 @@ async def handle_command(client, event):
         'lr': lambda: handle_list_rule_command(event, command, parts),
         'delete_rule': lambda: handle_delete_rule_command(event, command, parts),
         'dr': lambda: handle_delete_rule_command(event, command, parts),
+        'delete_rss_user': lambda: handle_delete_rss_user_command(event, command, parts),
+        'dru': lambda: handle_delete_rss_user_command(event, command, parts),
     }
 
     # 执行对应的命令处理器

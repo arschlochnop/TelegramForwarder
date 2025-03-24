@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 # 添加一个缓存来存储已处理的媒体组
 PROCESSED_GROUPS = set()
 
+BOT_ID = None
 
-
-def setup_listeners(user_client, bot_client):
+async def setup_listeners(user_client, bot_client):
     """
     设置消息监听器
     
@@ -29,14 +29,40 @@ def setup_listeners(user_client, bot_client):
         user_client: 用户客户端（用于监听消息和转发）
         bot_client: 机器人客户端（用于处理命令和转发）
     """
-    # 用户客户端监听器
-    @user_client.on(events.NewMessage)
+    global BOT_ID
+    
+    # 直接获取机器人ID
+    try:
+        me = await bot_client.get_me()
+        BOT_ID = me.id
+        logger.info(f"获取到机器人ID: {BOT_ID} (类型: {type(BOT_ID)})")
+    except Exception as e:
+        logger.error(f"获取机器人ID时出错: {str(e)}")
+    
+    # 过滤器，排除机器人自己的消息
+    async def not_from_bot(event):
+        if BOT_ID is None:
+            return True  # 如果未获取到机器人ID，不进行过滤
+        
+        sender = event.sender_id
+        try:
+            sender_id = int(sender) if sender is not None else None
+            is_not_bot = sender_id != BOT_ID
+            if not is_not_bot:
+                logger.info(f"过滤器识别到机器人消息，忽略处理: {sender_id}")
+            return is_not_bot
+        except (ValueError, TypeError):
+            return True  # 转换失败时不过滤
+    
+    # 用户客户端监听器 - 使用过滤器，避免处理机器人消息
+    @user_client.on(events.NewMessage(func=not_from_bot))
     async def user_message_handler(event):
         await handle_user_message(event, user_client, bot_client)
     
-    # 机器人客户端监听器
-    @bot_client.on(events.NewMessage)
+    # 机器人客户端监听器 - 使用过滤器
+    @bot_client.on(events.NewMessage(func=not_from_bot))
     async def bot_message_handler(event):
+        logger.info(f"机器人收到非自身消息, 发送者ID: {event.sender_id}")
         await handle_bot_message(event, bot_client)
         
     # 注册机器人回调处理器
@@ -62,7 +88,7 @@ async def handle_user_message(event, user_client, bot_client):
         # logger.info(f"handle_user_message:非频道消息处理: sender_id={sender_id}")
 
     # 检查用户状态
-    current_state = state_manager.get_state(sender_id, chat_id)
+    current_state, message, state_type = state_manager.get_state(sender_id, chat_id)
     # logger.info(f'handle_user_message：当前是否有状态: {state_manager.check_state()}')
     # logger.info(f"handle_user_message：当前用户ID和聊天ID: {sender_id}, {chat_id}")
     # logger.info(f"handle_user_message：获取当前聊天窗口的用户状态: {current_state}")
@@ -71,7 +97,7 @@ async def handle_user_message(event, user_client, bot_client):
         # logger.info(f"检测到用户状态: {current_state}")
         # 处理提示词设置
         # logger.info("准备处理提示词设置")
-        if await handle_prompt_setting(event, bot_client, sender_id, chat_id, current_state):
+        if await handle_prompt_setting(event, bot_client, sender_id, chat_id, current_state, message):
             # logger.info("提示词设置处理完成，返回")
             return
         # logger.info("提示词设置处理未完成，继续执行")
@@ -87,22 +113,7 @@ async def handle_user_message(event, user_client, bot_client):
         # 设置一个合理的过期时间（比如5分钟后）
         asyncio.create_task(clear_group_cache(group_key))
     
-    # 记录消息信息
-    session = get_session()
-    try:
-        chat_exists = session.query(Chat).filter(
-            Chat.telegram_chat_id == str(chat_id)  # 这里转换为字符串
-        ).first()
-        
-        if chat_exists:
-            if event.message.grouped_id:
-                logger.info(f'[用户] 收到媒体组消息 来自聊天: {chat_exists.name} ({chat_id}) 组ID: {event.message.grouped_id}')
-            else:
-                logger.info(f'[用户] 收到新消息 来自聊天: {chat_exists.name} ({chat_id}) 内容: {event.message.text}')
-    finally:
-        session.close()
-    
-    # 检查数据库中是否有该聊天的转发规则
+    # 首先检查数据库中是否有该聊天的转发规则
     session = get_session()
     try:
         # 查询源聊天
@@ -124,11 +135,15 @@ async def handle_user_message(event, user_client, bot_client):
         if not rules:
             logger.info(f'聊天 {source_chat.name} 没有转发规则')
             return
+        
+        # 有转发规则时，才记录消息信息
+        if event.message.grouped_id:
+            logger.info(f'[用户] 收到媒体组消息 来自聊天: {source_chat.name} ({chat_id}) 组ID: {event.message.grouped_id}')
+        else:
+            logger.info(f'[用户] 收到新消息 来自聊天: {source_chat.name} ({chat_id}) 内容: {event.message.text}')
             
         # 添加日志：处理规则
         logger.info(f'找到 {len(rules)} 条转发规则')
-
-
         
         # 处理每条转发规则
         for rule in rules:
@@ -152,6 +167,7 @@ async def handle_user_message(event, user_client, bot_client):
 async def handle_bot_message(event, bot_client):
     """处理机器人客户端收到的消息（命令）"""
     try:
+            
         # logger.info("handle_bot_message:开始处理机器人消息")
         
         chat = await event.get_chat()
@@ -170,7 +186,7 @@ async def handle_bot_message(event, bot_client):
             # logger.info(f"handle_bot_message:非频道消息处理: sender_id={sender_id}")
 
         # 检查用户状态
-        current_state = state_manager.get_state(sender_id, chat_id)
+        current_state, message, state_type = state_manager.get_state(sender_id, chat_id)
         # logger.info(f'handle_bot_message：当前是否有状态: {state_manager.check_state()}')
         # logger.info(f"handle_bot_message：当前用户ID和聊天ID: {sender_id}, {chat_id}")
         # logger.info(f"handle_bot_message：获取当前聊天窗口的用户状态: {current_state}")
@@ -179,7 +195,7 @@ async def handle_bot_message(event, bot_client):
         
         # 处理提示词设置
         if current_state:
-            await handle_prompt_setting(event, bot_client, sender_id, chat_id, current_state)
+            await handle_prompt_setting(event, bot_client, sender_id, chat_id, current_state, message)
             return
 
         # 如果没有特殊状态，则处理常规命令

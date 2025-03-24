@@ -8,6 +8,7 @@ from enums.enums import ForwardMode
 from models.models import Chat, ForwardRule
 import re
 import telethon
+from utils.auto_delete import respond_and_delete,reply_and_delete,async_delete_user_message
 
 from utils.constants import AI_SETTINGS_TEXT,MEDIA_SETTINGS_TEXT
 
@@ -26,6 +27,16 @@ async def get_main_module():
         main = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(main)
         return main
+
+async def get_user_client():
+    """获取用户客户端"""
+    main = await get_main_module()
+    return main.user_client
+
+async def get_bot_client():
+    """获取机器人客户端"""
+    main = await get_main_module()
+    return main.bot_client
 
 async def get_db_ops():
     """获取 main.py 中的 db_ops 实例"""
@@ -56,7 +67,7 @@ async def get_current_rule(session, event):
 
         if not current_chat_db or not current_chat_db.current_add_id:
             logger.info('未找到当前聊天或未选择源聊天')
-            await event.reply('请先使用 /switch 选择一个源聊天')
+            await reply_and_delete(event,'请先使用 /switch 选择一个源聊天')
             return None
 
         logger.info(f'当前选中的源聊天ID: {current_chat_db.current_add_id}')
@@ -79,7 +90,7 @@ async def get_current_rule(session, event):
 
         if not rule:
             logger.info('未找到对应的转发规则')
-            await event.reply('转发规则不存在')
+            await reply_and_delete(event,'转发规则不存在')
             return None
 
         logger.info(f'找到转发规则 ID: {rule.id}')
@@ -87,7 +98,7 @@ async def get_current_rule(session, event):
     except Exception as e:
         logger.error(f'获取当前规则时出错: {str(e)}')
         logger.exception(e)
-        await event.reply('获取当前规则时出错，请检查日志')
+        await reply_and_delete(event,'获取当前规则时出错，请检查日志')
         return None
 
 
@@ -104,7 +115,7 @@ async def get_all_rules(session, event):
 
         if not current_chat_db:
             logger.info('未找到当前聊天')
-            await event.reply('当前聊天没有任何转发规则')
+            await reply_and_delete(event,'当前聊天没有任何转发规则')
             return None
 
         logger.info(f'找到当前聊天数据库记录 ID: {current_chat_db.id}')
@@ -116,7 +127,7 @@ async def get_all_rules(session, event):
 
         if not rules:
             logger.info('未找到任何转发规则')
-            await event.reply('当前聊天没有任何转发规则')
+            await reply_and_delete(event,'当前聊天没有任何转发规则')
             return None
 
         logger.info(f'找到 {len(rules)} 条转发规则')
@@ -124,7 +135,7 @@ async def get_all_rules(session, event):
     except Exception as e:
         logger.error(f'获取所有规则时出错: {str(e)}')
         logger.exception(e)
-        await event.reply('获取规则时出错，请检查日志')
+        await reply_and_delete(event,'获取规则时出错，请检查日志')
         return None
 
 
@@ -142,11 +153,21 @@ async def check_keywords(rule, message_text, event = None):
 
     logger.info(f"是否开启过滤用户选项: {rule.is_filter_user_info}")
     if rule.is_filter_user_info:
-        username = await get_sender_info(event, rule.id)  # 调用新的函数获取 sender_info
-        name =  (
-                event.sender.title if hasattr(event.sender, 'title')
-                else f"{event.sender.first_name or ''} {event.sender.last_name or ''}".strip()
-                )
+        username = await get_sender_info(event, rule.id)
+        name = None
+        
+        if hasattr(event.message, 'sender_chat') and event.message.sender_chat:
+            # 用户以频道身份发送消息
+            sender = event.message.sender_chat
+            name = sender.title if hasattr(sender, 'title') else None
+        elif event.sender:
+            # 用户以个人身份发送消息
+            sender = event.sender
+            name = (
+                sender.title if hasattr(sender, 'title')
+                else f"{sender.first_name or ''} {sender.last_name or ''}".strip()
+            )
+            
         if username and name:
             logger.info(f"成功获取用户信息: {username} {name}")
             message_text = f"{username} {name}:\n{message_text}"
@@ -336,34 +357,129 @@ async def get_ai_settings_text(rule):
     )
 
 async def get_sender_info(event, rule_id):
-    """获取消息发送者信息，处理各种情况并返回 sender_info 字符串"""
-    sender_info = ""
-    if hasattr(event.message, 'from_user'):
-        if event.message.from_user:
-            sender_info = f"{event.message.from_user.mention} ({event.message.from_user.id})"
+    """
+    获取发送者信息
+    
+    Args:
+        event: 消息事件
+        rule_id: 规则ID
+        
+    Returns:
+        str: 发送者信息
+    """
+    try:
+        logger.info("开始获取发送者信息")
+        sender_name = None
+
+        if hasattr(event.message, 'sender_chat') and event.message.sender_chat:
+            # 用户以频道身份发送消息
+            sender = event.message.sender_chat
+            sender_name = sender.title if hasattr(sender, 'title') else None
+            logger.info(f"使用频道信息: {sender_name}")
+
+        elif event.sender:
+            # 用户以个人身份发送消息
+            sender = event.sender
+            sender_name = (
+                sender.title if hasattr(sender, 'title')
+                else f"{sender.first_name or ''} {sender.last_name or ''}".strip()
+            )
+            logger.info(f"使用发送者信息: {sender_name}")
+
+        elif hasattr(event.message, 'peer_id') and event.message.peer_id:
+            # 尝试从 peer_id 获取信息
+            peer = event.message.peer_id
+            if hasattr(peer, 'channel_id'):
+                try:
+                    # 尝试获取频道信息
+                    channel = await event.client.get_entity(peer)
+                    sender_name = channel.title if hasattr(channel, 'title') else None
+                    logger.info(f"使用peer_id信息: {sender_name}")
+                except Exception as ce:
+                    logger.error(f'获取频道信息失败: {str(ce)}')
+
+        if sender_name:
+            return sender_name
         else:
-            logger.warning(f"规则 ID: {rule_id} - event.message.from_user 存在但为 None")
-            sender_info = "未知发送者 (from_user 为 None)"
-    elif hasattr(event.message, 'sender'):
-        if event.message.sender:
-            sender = await event.get_sender()
-            if sender:
-                if isinstance(sender, telethon.tl.types.Channel):
-                    sender_info = f"{sender.title} ({sender.id})"
-                elif isinstance(sender, telethon.tl.types.User):
-                    sender_info = f"{sender.username or sender.first_name or '未知用户'} ({sender.id})"
-                else:
-                    sender_info = f"未知类型发送者 ({sender.id})"
-            else:
-                logger.warning(f"规则 ID: {rule_id} - event.message.sender 存在但 get_sender() 返回 None")
-                sender_info = "未知发送者 (sender 为 None after get_sender)"
+            logger.warning(f"规则 ID: {rule_id} - 无法获取发送者信息")
+            return None
+
+    except Exception as e:
+        logger.error(f'获取发送者信息出错: {str(e)}')
+        return None
+
+async def check_and_clean_chats(session, rule=None):
+    """
+    检查并清理不再与任何规则关联的聊天记录
+    
+    Args:
+        session: 数据库会话
+        rule: 被删除的规则对象（可选），如果提供则从中获取聊天ID
+        
+    Returns:
+        int: 删除的聊天记录数量
+    """
+    deleted_count = 0
+    
+    try:
+        # 获取所有聊天ID
+        chat_ids_to_check = set()
+        
+        # 如果提供了规则，先检查这些受影响的聊天
+        if rule:
+            if rule.source_chat_id:
+                chat_ids_to_check.add(rule.source_chat_id)
+            if rule.target_chat_id:
+                chat_ids_to_check.add(rule.target_chat_id)
         else:
-            logger.warning(f"规则 ID: {rule_id} - event.message.sender 存在但为 None")
-            sender_info = "未知发送者 (sender 为 None)"
-    else:
-        logger.warning(f"规则 ID: {rule_id} - event.message 既没有 from_user 也没有 sender 属性")
-        sender_info = "未知发送者 (无法获取用户信息)"
-    return sender_info
+            # 如果没有提供规则，则获取所有聊天
+            all_chats = session.query(Chat.id).all()
+            chat_ids_to_check = set(chat[0] for chat in all_chats)
+        
+        # 对每个聊天ID进行检查
+        for chat_id in chat_ids_to_check:
+            # 检查此聊天是否还被任何规则引用
+            as_source = session.query(ForwardRule).filter(
+                ForwardRule.source_chat_id == chat_id
+            ).count()
+            
+            as_target = session.query(ForwardRule).filter(
+                ForwardRule.target_chat_id == chat_id
+            ).count()
+            
+            # 如果聊天不再被任何规则引用
+            if as_source == 0 and as_target == 0:
+                chat = session.query(Chat).get(chat_id)
+                if chat:
+                    # 获取telegram_chat_id以便日志记录
+                    telegram_chat_id = chat.telegram_chat_id
+                    name = chat.name or "未命名聊天"
+                    
+                    # 清理所有引用此聊天作为current_add_id的记录
+                    chats_using_this = session.query(Chat).filter(
+                        Chat.current_add_id == telegram_chat_id
+                    ).all()
+                    
+                    for other_chat in chats_using_this:
+                        other_chat.current_add_id = None
+                        logger.info(f'清除聊天 {other_chat.name} 的current_add_id设置')
+                    
+                    # 删除聊天记录
+                    session.delete(chat)
+                    logger.info(f'删除未使用的聊天: {name} (ID: {telegram_chat_id})')
+                    deleted_count += 1
+        
+        # 如果有删除操作，提交更改
+        if deleted_count > 0:
+            session.commit()
+            logger.info(f'共清理了 {deleted_count} 个未使用的聊天记录')
+        
+        return deleted_count
+        
+    except Exception as e:
+        logger.error(f'检查和清理聊天记录时出错: {str(e)}')
+        session.rollback()
+        return 0
 
 
 

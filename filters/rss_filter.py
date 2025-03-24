@@ -9,7 +9,7 @@ from datetime import datetime
 import shutil
 from filters.base_filter import BaseFilter
 import uuid
-from utils.constants import TEMP_DIR, RSS_MEDIA_DIR, get_rule_media_dir,RSS_HOST,RSS_PORT
+from utils.constants import TEMP_DIR, RSS_MEDIA_DIR, get_rule_media_dir,RSS_HOST,RSS_PORT,RSS_ENABLED
 from models.models import get_session
 from utils.common import get_db_ops
 
@@ -42,8 +42,12 @@ class RSSFilter(BaseFilter):
     
     async def _process(self, context):
         """处理RSS过滤器逻辑"""
+        
+        if not RSS_ENABLED:
+            logger.info("RSS未启用，跳过RSS处理")
+            return True
+        
         if not context.should_forward:
-            logger.info("消息被前置过滤器过滤，跳过RSS处理")
             return False
         
         db_ops = await get_db_ops()
@@ -56,13 +60,13 @@ class RSSFilter(BaseFilter):
         if rss_config is None:
             logger.error(f"找不到规则ID为 {context.rule.id} 的RSS配置，跳过RSS处理")
             session.close()
-            return False
+            return True
         
         # 检查是否启用RSS
         if not rss_config.enable_rss:
             logger.info(f"规则ID为 {context.rule.id} 的RSS未启用，跳过RSS处理")
             session.close()
-            return False
+            return True
 
         # 执行RSS规则前，先确保媒体文件已经下载
         # 媒体组消息需要特殊处理
@@ -160,6 +164,20 @@ class RSSFilter(BaseFilter):
                         media_list.append(media_info)
                 elif media_list:
                     logger.debug(f"_process_media返回了多个媒体: {len(media_list)}")
+                
+                # 检查媒体是否在skipped_media列表中
+                if context and hasattr(context, 'skipped_media') and context.skipped_media:
+                    for skipped_msg, size, name in context.skipped_media:
+                        if skipped_msg.id == message.id:
+                            logger.info(f"媒体文件 {name or ''} (大小: {size}MB) 已在skipped_media列表中，添加标记到条目数据")
+                            # 可以选择在content中添加标记，表明该媒体因大小超限而被跳过
+                            note = f"\n\n[注意：包含超过大小限制的媒体文件 {name or ''}，大小: {size}MB]"
+                            if hasattr(message, 'text') and message.text:
+                                content = message.text + note
+                            elif hasattr(message, 'caption') and message.caption:
+                                content = message.caption + note
+                            else:
+                                content = note.strip()
                 
                 # 尝试记录媒体信息
                 if media_list:
@@ -278,6 +296,13 @@ class RSSFilter(BaseFilter):
         media_list = []
         
         try:
+            # 检查消息是否在skipped_media列表中
+            if context and hasattr(context, 'skipped_media') and context.skipped_media:
+                for skipped_msg, size, name in context.skipped_media:
+                    if skipped_msg.id == message.id:
+                        logger.info(f"媒体文件 {name or ''} (大小: {size}MB) 已在skipped_media列表中，RSS过滤器跳过下载")
+                        return media_list
+
             # 处理文档类型
             if hasattr(message, 'document') and message.document:
                 # 获取原始文件名
@@ -595,6 +620,17 @@ class RSSFilter(BaseFilter):
                     # 直接处理媒体组消息
                     for msg in context.media_group_messages:
                         try:
+                            # 检查消息是否在skipped_media列表中
+                            if hasattr(context, 'skipped_media') and context.skipped_media:
+                                skip_msg = False
+                                for skipped_msg, size, name in context.skipped_media:
+                                    if skipped_msg.id == msg.id:
+                                        logger.info(f"媒体组中的媒体文件 {name or ''} (大小: {size}MB) 已在skipped_media列表中，RSS过滤器跳过下载")
+                                        skip_msg = True
+                                        break
+                                if skip_msg:
+                                    continue
+
                             # 处理图片类型
                             if hasattr(msg, 'photo') and msg.photo:
                                 message_id = getattr(msg, 'id', 'unknown')
